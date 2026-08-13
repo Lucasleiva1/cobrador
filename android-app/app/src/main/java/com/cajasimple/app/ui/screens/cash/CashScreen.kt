@@ -22,6 +22,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -48,12 +49,15 @@ import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Add
 import androidx.compose.material.icons.outlined.Remove
+import androidx.compose.material.icons.outlined.RestartAlt
 import com.cajasimple.app.domain.model.CashMode
+import com.cajasimple.app.domain.model.ResetButtonStyle
 import com.cajasimple.app.domain.model.SaleDraft
 import com.cajasimple.app.domain.usecase.SaleEngine
 import com.cajasimple.app.ui.components.ItemEditor
@@ -68,19 +72,54 @@ fun CashScreen(
     businessName: String,
     productQuickPrices: List<Long>,
     paymentQuickAmounts: List<Long>,
+    resetButtonStyle: ResetButtonStyle,
 ) {
     val state by viewModel.state.collectAsState()
     val snackbar = remember { SnackbarHostState() }
+    var showResetConfirmation by remember { mutableStateOf(false) }
     LaunchedEffect(state.notice) {
         state.notice?.let { snackbar.showSnackbar(it); viewModel.clearNotice() }
     }
     Box(Modifier.fillMaxSize()) {
         when {
             state.lastConfirmed != null && state.draft.confirmed -> ConfirmedResult(state, viewModel::newSale)
-            mode == CashMode.GUIDED -> GuidedCash(state, viewModel, businessName, productQuickPrices, paymentQuickAmounts)
-            else -> QuickCash(state, viewModel, businessName, paymentQuickAmounts)
+            mode == CashMode.GUIDED -> GuidedCash(
+                state,
+                viewModel,
+                businessName,
+                productQuickPrices,
+                paymentQuickAmounts,
+                resetButtonStyle,
+                onResetRequest = { showResetConfirmation = true },
+            )
+            else -> QuickCash(
+                state,
+                viewModel,
+                businessName,
+                paymentQuickAmounts,
+                resetButtonStyle,
+                onResetRequest = { showResetConfirmation = true },
+            )
         }
         SnackbarHost(snackbar, Modifier.align(Alignment.BottomCenter).padding(16.dp))
+    }
+    if (showResetConfirmation) {
+        AlertDialog(
+            onDismissRequest = { showResetConfirmation = false },
+            title = { Text("¿Estás seguro de que querés reiniciar?") },
+            text = { Text("Se borrará solamente la venta actual y volverás al primer producto.") },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        showResetConfirmation = false
+                        viewModel.resetCurrentSale()
+                    },
+                ) { Text("Sí") }
+            },
+            dismissButton = {
+                TextButton(onClick = { showResetConfirmation = false }) { Text("No") }
+            },
+        )
     }
 }
 
@@ -100,6 +139,8 @@ private fun GuidedCash(
     businessName: String,
     productQuickPrices: List<Long>,
     paymentQuickAmounts: List<Long>,
+    resetButtonStyle: ResetButtonStyle,
+    onResetRequest: () -> Unit,
 ) {
     val draft = state.draft
     if (draft.paymentStep) BackHandler { vm.editSale() }
@@ -116,6 +157,7 @@ private fun GuidedCash(
     }
     LaunchedEffect(draft.paymentStep) { if (draft.paymentStep) { delay(250); paymentFocus.requestFocus() } }
     ScreenColumn {
+        ResetSaleControl(resetButtonStyle, onResetRequest)
         if (!draft.paymentStep) {
             val completedItems = if (state.guidedStep == GuidedStep.DECISION) {
                 draft.validItems
@@ -239,9 +281,17 @@ private fun GuidedItemSummary(number: Int, item: com.cajasimple.app.domain.model
 }
 
 @Composable
-private fun QuickCash(state: CashUiState, vm: CashViewModel, businessName: String, paymentQuickAmounts: List<Long>) {
+private fun QuickCash(
+    state: CashUiState,
+    vm: CashViewModel,
+    businessName: String,
+    paymentQuickAmounts: List<Long>,
+    resetButtonStyle: ResetButtonStyle,
+    onResetRequest: () -> Unit,
+) {
     val draft = state.draft
     ScreenColumn {
+        ResetSaleControl(resetButtonStyle, onResetRequest)
         Header(businessName, "Caja rápida")
         draft.items.forEachIndexed { index, item ->
             ItemEditor(
@@ -260,6 +310,41 @@ private fun QuickCash(state: CashUiState, vm: CashViewModel, businessName: Strin
         PaymentResult(draft)
         PrimaryAction("Cobrar", draft.canConfirm && !state.busy, { vm.confirm() })
         PrimaryAction("Nueva venta", draft.canConfirm || draft.confirmed, vm::newSale)
+    }
+}
+
+@Composable
+private fun ResetSaleControl(style: ResetButtonStyle, onResetRequest: () -> Unit) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.End,
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        if (style == ResetButtonStyle.ICON_ONLY) {
+            IconButton(
+                onClick = onResetRequest,
+                modifier = Modifier.size(40.dp).testTag("reset-sale"),
+            ) {
+                Icon(
+                    Icons.Outlined.RestartAlt,
+                    contentDescription = "Reiniciar venta",
+                    modifier = Modifier.size(22.dp),
+                )
+            }
+        } else {
+            TextButton(
+                onClick = onResetRequest,
+                modifier = Modifier.height(40.dp).testTag("reset-sale"),
+            ) {
+                Icon(
+                    Icons.Outlined.RestartAlt,
+                    contentDescription = null,
+                    modifier = Modifier.size(20.dp),
+                )
+                Spacer(Modifier.width(6.dp))
+                Text("Reiniciar")
+            }
+        }
     }
 }
 

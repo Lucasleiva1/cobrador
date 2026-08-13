@@ -16,6 +16,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.DarkMode
 import androidx.compose.material.icons.outlined.LightMode
+import androidx.compose.material.icons.outlined.RestartAlt
 import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material.icons.outlined.ExpandLess
 import androidx.compose.material.icons.outlined.ExpandMore
@@ -41,6 +42,7 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.ui.unit.dp
 import com.cajasimple.app.domain.model.CashMode
+import com.cajasimple.app.domain.model.ResetButtonStyle
 import com.cajasimple.app.domain.model.ThemeMode
 import com.cajasimple.app.domain.model.VisualTheme
 import com.cajasimple.app.domain.usecase.SaleEngine
@@ -71,6 +73,26 @@ fun SettingsScreen(viewModel: SettingsViewModel, updatesViewModel: UpdateViewMod
         Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
             FilterChip(selected = settings.mode == CashMode.GUIDED, onClick = { viewModel.setMode(CashMode.GUIDED) }, label = { Text("Guiado") })
             FilterChip(selected = settings.mode == CashMode.QUICK, onClick = { viewModel.setMode(CashMode.QUICK) }, label = { Text("Rápido") })
+        }
+        SectionTitle("Botón Reiniciar")
+        Text(
+            "Elegí cómo querés verlo arriba de la caja.",
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            FilterChip(
+                selected = settings.resetButtonStyle == ResetButtonStyle.ICON_ONLY,
+                onClick = { viewModel.setResetButtonStyle(ResetButtonStyle.ICON_ONLY) },
+                leadingIcon = { Icon(Icons.Outlined.RestartAlt, contentDescription = null) },
+                label = { Text("Solo ícono") },
+            )
+            FilterChip(
+                selected = settings.resetButtonStyle == ResetButtonStyle.ICON_WITH_TEXT,
+                onClick = { viewModel.setResetButtonStyle(ResetButtonStyle.ICON_WITH_TEXT) },
+                leadingIcon = { Icon(Icons.Outlined.RestartAlt, contentDescription = null) },
+                label = { Text("Ícono y texto") },
+            )
         }
         QuickAmountsEditor(
             title = "Precios rápidos de productos",

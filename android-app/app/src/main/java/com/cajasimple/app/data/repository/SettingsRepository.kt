@@ -6,6 +6,7 @@ import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import com.cajasimple.app.domain.model.BusinessSettings
 import com.cajasimple.app.domain.model.CashMode
+import com.cajasimple.app.domain.model.ResetButtonStyle
 import com.cajasimple.app.domain.model.ThemeMode
 import com.cajasimple.app.domain.model.VisualTheme
 import kotlinx.coroutines.flow.Flow
@@ -18,6 +19,7 @@ class SettingsRepository(private val context: Context) {
     private val selectedMode = stringPreferencesKey("selected_mode")
     private val selectedTheme = stringPreferencesKey("selected_theme")
     private val selectedThemeMode = stringPreferencesKey("selected_theme_mode")
+    private val resetButtonStyle = stringPreferencesKey("reset_button_style")
     private val productQuickPrices = stringPreferencesKey("product_quick_prices")
     private val paymentQuickAmounts = stringPreferencesKey("payment_quick_amounts")
 
@@ -27,6 +29,8 @@ class SettingsRepository(private val context: Context) {
             mode = prefs[selectedMode]?.let { runCatching { CashMode.valueOf(it) }.getOrNull() } ?: CashMode.GUIDED,
             theme = prefs[selectedTheme]?.let { runCatching { VisualTheme.valueOf(it) }.getOrNull() } ?: VisualTheme.CREAM,
             themeMode = prefs[selectedThemeMode]?.let { runCatching { ThemeMode.valueOf(it) }.getOrNull() } ?: ThemeMode.DARK,
+            resetButtonStyle = prefs[resetButtonStyle]?.let { runCatching { ResetButtonStyle.valueOf(it) }.getOrNull() }
+                ?: ResetButtonStyle.ICON_ONLY,
             productQuickPrices = prefs[productQuickPrices]?.toAmounts() ?: DEFAULT_PRODUCT_PRICES,
             paymentQuickAmounts = prefs[paymentQuickAmounts]?.toAmounts() ?: emptyList(),
         )
@@ -36,6 +40,7 @@ class SettingsRepository(private val context: Context) {
     suspend fun setMode(value: CashMode) = context.settingsStore.edit { it[selectedMode] = value.name }
     suspend fun setTheme(value: VisualTheme) = context.settingsStore.edit { it[selectedTheme] = value.name }
     suspend fun setThemeMode(value: ThemeMode) = context.settingsStore.edit { it[selectedThemeMode] = value.name }
+    suspend fun setResetButtonStyle(value: ResetButtonStyle) = context.settingsStore.edit { it[resetButtonStyle] = value.name }
     suspend fun addProductQuickPrice(amount: Long) = updateAmounts(productQuickPrices, amount, add = true)
     suspend fun removeProductQuickPrice(amount: Long) = updateAmounts(productQuickPrices, amount, add = false)
     suspend fun addPaymentQuickAmount(amount: Long) = updateAmounts(paymentQuickAmounts, amount, add = true)

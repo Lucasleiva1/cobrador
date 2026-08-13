@@ -122,6 +122,7 @@ private fun CajaApp(
                     settings.businessName,
                     settings.productQuickPrices,
                     settings.paymentQuickAmounts,
+                    settings.resetButtonStyle,
                 )
             }
             composable("today") { LaunchedEffect(Unit) { today.today() }; SalesListScreen(today, settings.businessName, history = false) }

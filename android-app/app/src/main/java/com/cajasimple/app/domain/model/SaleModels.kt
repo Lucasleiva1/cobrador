@@ -7,6 +7,7 @@ enum class SyncStatus { PENDING, SYNCED, FAILED_RETRYABLE }
 enum class CashMode { GUIDED, QUICK }
 enum class VisualTheme { MONO, BLUE, RED_BLACK, CREAM, NAVY_CREAM }
 enum class ThemeMode { LIGHT, DARK }
+enum class ResetButtonStyle { ICON_ONLY, ICON_WITH_TEXT }
 
 data class DraftItem(
     val id: String = UUID.randomUUID().toString(),
@@ -54,6 +55,7 @@ data class BusinessSettings(
     val mode: CashMode = CashMode.GUIDED,
     val theme: VisualTheme = VisualTheme.CREAM,
     val themeMode: ThemeMode = ThemeMode.DARK,
+    val resetButtonStyle: ResetButtonStyle = ResetButtonStyle.ICON_ONLY,
     val productQuickPrices: List<Long> = listOf(18_000L, 20_000L, 25_000L, 30_000L),
     val paymentQuickAmounts: List<Long> = emptyList(),
 )

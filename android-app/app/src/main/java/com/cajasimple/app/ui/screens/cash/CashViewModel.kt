@@ -124,6 +124,11 @@ class CashViewModel(private val repository: SalesRepository, private val appCont
 
     fun clearNotice() { _state.value = _state.value.copy(notice = null) }
 
+    fun resetCurrentSale() {
+        if (_state.value.busy) return
+        resetSale()
+    }
+
     private fun resetSale() {
         _state.value = CashUiState(draft = SaleDraft(id = UUID.randomUUID().toString()), restored = true)
         persist()
