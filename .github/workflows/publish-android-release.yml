@@ -1,0 +1,55 @@
+name: Publicar versión Android
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - ".github/workflows/publish-android-release.yml"
+      - "release-assets/**"
+
+permissions:
+  contents: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Descargar repositorio
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Leer versión
+        id: version
+        shell: bash
+        run: |
+          VERSION="$(jq -r '.versionName' release-assets/version.json)"
+          echo "tag=v${VERSION}" >> "$GITHUB_OUTPUT"
+
+      - name: Verificar integridad
+        working-directory: release-assets
+        run: sha256sum -c caja-simple.apk.sha256
+
+      - name: Publicar versión
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ steps.version.outputs.tag }}
+        shell: bash
+        run: |
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            gh release edit "$TAG" \
+              --title "Caja Simple ${TAG#v}" \
+              --notes-file release-assets/RELEASE_NOTES.md
+          else
+            gh release create "$TAG" \
+              --verify-tag \
+              --title "Caja Simple ${TAG#v}" \
+              --notes-file release-assets/RELEASE_NOTES.md
+          fi
+
+          gh release upload "$TAG" \
+            release-assets/caja-simple.apk \
+            release-assets/caja-simple.apk.sha256 \
+            release-assets/version.json \
+            --clobber

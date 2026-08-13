@@ -15,3 +15,8 @@ web-dashboard/.vercel/
 android-app/app/src/main/assets/local.properties
 android-app/wrapper-bootstrap/
 release-assets/
+!release-assets/
+!release-assets/caja-simple.apk
+!release-assets/caja-simple.apk.sha256
+!release-assets/version.json
+!release-assets/RELEASE_NOTES.md
