@@ -4,6 +4,8 @@ local.properties
 **/build/
 *.iml
 *.apk
+*.jks
+*.keystore
 node_modules/
 .next/
 *.tsbuildinfo
@@ -12,3 +14,4 @@ node_modules/
 web-dashboard/.vercel/
 android-app/app/src/main/assets/local.properties
 android-app/wrapper-bootstrap/
+release-assets/

@@ -27,3 +27,7 @@ Abra `http://localhost:3000`. Sin `.env.local`, usa datos demostrativos solament
 La aplicación guarda primero cada venta en Room y genera una copia local en `Documentos/Caja Simple/AAAA-MM-DD/`. Cuando hay internet, envía el CSV por HTTPS al receptor privado de Google Apps Script, que lo actualiza en `Caja Simple - Ventas/AAAA-MM-DD/` dentro de Google Drive.
 
 La URL y la clave del receptor se leen desde `android-app/local.properties`, que está excluido de Git. Consulte `android-app/local.properties.example` para preparar otra computadora sin publicar credenciales.
+
+## Actualizaciones
+
+La aplicación consulta la última versión publicada en GitHub Releases al abrirse y también permite buscarla manualmente desde Ajustes. El APK se verifica con SHA-256 antes de abrir el instalador oficial de Android. Consulte [docs/ACTUALIZACIONES_ANDROID.md](docs/ACTUALIZACIONES_ANDROID.md).

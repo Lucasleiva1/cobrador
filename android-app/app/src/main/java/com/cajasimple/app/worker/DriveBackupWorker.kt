@@ -14,14 +14,10 @@ import androidx.work.WorkManager
 import androidx.work.WorkerParameters
 import com.cajasimple.app.CajaSimpleApplication
 import com.cajasimple.app.BuildConfig
-import com.cajasimple.app.domain.model.ConfirmedSale
 import com.cajasimple.app.domain.model.SyncStatus
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
-import java.time.Instant
 import java.time.LocalDate
-import java.time.ZoneId
-import java.time.format.DateTimeFormatter
 import java.io.File
 import java.net.HttpURLConnection
 import java.net.URL
@@ -35,7 +31,7 @@ class DriveBackupWorker(context: Context, params: WorkerParameters) : CoroutineW
             val sales = container.salesRepository.getDay(date)
             if (sales.isEmpty()) return Result.success()
             val fileName = "ventas-$date.csv"
-            val content = csv(sales)
+            val content = DailySalesCsv.create(sales)
             writeLocalDocuments(fileName, content)
             if (!uploadToDrive(fileName, content)) return Result.retry()
             sales.forEach { container.database.salesDao().updateSyncStatus(it.id, SyncStatus.SYNCED.name) }
@@ -130,27 +126,6 @@ class DriveBackupWorker(context: Context, params: WorkerParameters) : CoroutineW
             File(directory, fileName).writeText(content, Charsets.UTF_8)
         }
     }
-
-    private fun csv(sales: List<ConfirmedSale>): String = buildString {
-        appendLine("venta_id,fecha,hora,producto,cantidad,precio_unitario,subtotal,total,recibido,vuelto")
-        sales.forEach { sale ->
-            val instant = Instant.ofEpochMilli(sale.createdAt).atZone(ZoneId.systemDefault())
-            sale.items.forEach { item ->
-                append(csvCell(sale.id)).append(',')
-                append(instant.toLocalDate()).append(',')
-                append(instant.format(DateTimeFormatter.ofPattern("HH:mm:ss"))).append(',')
-                append(csvCell(item.description.ifBlank { "Sin detalle" })).append(',')
-                append(item.quantity).append(',')
-                append(item.unitPrice).append(',')
-                append(item.subtotal).append(',')
-                append(sale.totalAmount).append(',')
-                append(sale.receivedAmount).append(',')
-                append(sale.changeAmount).appendLine()
-            }
-        }
-    }
-
-    private fun csvCell(value: String): String = "\"${value.replace("\"", "\"\"")}\""
 
     companion object {
         fun enqueue(context: Context) {

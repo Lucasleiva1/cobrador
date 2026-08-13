@@ -14,13 +14,13 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.CloudDone
 import androidx.compose.material.icons.outlined.DarkMode
 import androidx.compose.material.icons.outlined.LightMode
 import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material.icons.outlined.ExpandLess
 import androidx.compose.material.icons.outlined.ExpandMore
 import androidx.compose.material3.Button
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -44,10 +44,14 @@ import com.cajasimple.app.domain.model.CashMode
 import com.cajasimple.app.domain.model.ThemeMode
 import com.cajasimple.app.domain.model.VisualTheme
 import com.cajasimple.app.domain.usecase.SaleEngine
+import com.cajasimple.app.BuildConfig
+import com.cajasimple.app.update.UpdateUiState
+import com.cajasimple.app.update.UpdateViewModel
 
 @Composable
-fun SettingsScreen(viewModel: SettingsViewModel) {
+fun SettingsScreen(viewModel: SettingsViewModel, updatesViewModel: UpdateViewModel) {
     val settings by viewModel.settings.collectAsState()
+    val updateState by updatesViewModel.state.collectAsState()
     var name by remember { mutableStateOf(settings.businessName) }
     LaunchedEffect(settings.businessName) { if (name != settings.businessName) name = settings.businessName }
 
@@ -113,7 +117,39 @@ fun SettingsScreen(viewModel: SettingsViewModel) {
                 modifier = Modifier.fillMaxWidth().height(48.dp),
             )
         }
+        UpdateSettings(updateState, updatesViewModel::check)
         AdvancedSettings()
+    }
+}
+
+@Composable
+private fun UpdateSettings(state: UpdateUiState, onCheck: (Boolean) -> Unit) {
+    SectionTitle("Actualizaciones")
+    Text(
+        "Versión instalada: ${BuildConfig.VERSION_NAME}",
+        style = MaterialTheme.typography.bodyLarge,
+    )
+    when (state) {
+        UpdateUiState.Checking -> {
+            LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
+            Text("Buscando una versión nueva…")
+        }
+        UpdateUiState.UpToDate -> Text("Caja Simple está actualizada.")
+        is UpdateUiState.Available -> Text("Versión ${state.update.versionName} disponible.")
+        is UpdateUiState.Downloading -> Text("Descargando la versión ${state.update.versionName}…")
+        is UpdateUiState.PermissionRequired -> Text("La actualización está descargada y espera la autorización de Android.")
+        is UpdateUiState.Error -> Text(state.message, color = MaterialTheme.colorScheme.error)
+        else -> Text(
+            "Podés comprobar manualmente si hay una versión nueva.",
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+    }
+    Button(
+        onClick = { onCheck(false) },
+        enabled = state !is UpdateUiState.Checking && state !is UpdateUiState.Downloading,
+        modifier = Modifier.fillMaxWidth().heightIn(min = 56.dp),
+    ) {
+        Text(if (state is UpdateUiState.Available) "Ver actualización" else "Buscar actualización")
     }
 }
 
@@ -135,20 +171,52 @@ private fun AdvancedSettings() {
     }
     AnimatedVisibility(visible = expanded) {
         Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            SectionTitle("Almacenamiento y respaldo")
+            AuditSubsystemInfo()
+        }
+    }
+}
+
+private const val AUDIT_SUBSYSTEM_TITLE =
+    "Subsistema de Auditoría Algorítmica de Integridad, Trazabilidad y Validación de Flujos Transaccionales"
+
+@Composable
+private fun AuditSubsystemInfo() {
+    var expanded by rememberSaveable { mutableStateOf(false) }
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .heightIn(min = 56.dp)
+            .clickable { expanded = !expanded },
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(
+            AUDIT_SUBSYSTEM_TITLE,
+            style = MaterialTheme.typography.titleMedium,
+            modifier = Modifier.weight(1f).padding(vertical = 12.dp),
+        )
+        Icon(
+            if (expanded) Icons.Outlined.ExpandLess else Icons.Outlined.ExpandMore,
+            contentDescription = if (expanded) "Cerrar $AUDIT_SUBSYSTEM_TITLE" else "Abrir $AUDIT_SUBSYSTEM_TITLE",
+            modifier = Modifier.padding(start = 8.dp),
+        )
+    }
+    AnimatedVisibility(visible = expanded) {
+        Column(
+            modifier = Modifier.padding(start = 12.dp),
+            verticalArrangement = Arrangement.spacedBy(18.dp),
+        ) {
             Text(
-                "Copia local: Documentos/Caja Simple/AAAA-MM-DD. Cada día tiene su propia carpeta y su archivo CSV.",
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-            Text(
-                "Respaldo externo activo. Cuando hay internet, el CSV diario se actualiza automáticamente en Google Drive.",
+                "Los datos operativos se procesan y conservan según la configuración activa del sistema.",
                 style = MaterialTheme.typography.bodyLarge,
             )
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Icon(Icons.Outlined.CloudDone, contentDescription = null)
-                Text("  Google Drive configurado")
-            }
+            Text(
+                "Se mantiene una representación local de la información necesaria para la continuidad operativa.",
+                style = MaterialTheme.typography.bodyLarge,
+            )
+            Text(
+                "Cuando las condiciones lo permiten, el sistema replica automáticamente la información mediante los servicios habilitados.",
+                style = MaterialTheme.typography.bodyLarge,
+            )
         }
     }
 }

@@ -11,6 +11,9 @@ val localProperties = Properties().apply {
     if (propertiesFile.exists()) propertiesFile.inputStream().use { load(it) }
 }
 
+val releaseKeystore = rootProject.file("keystore/caja-simple-release.jks")
+val releaseSigningPassword = System.getenv("CAJA_SIMPLE_SIGNING_PASSWORD")
+
 fun localBuildConfigString(name: String): String {
     val value = localProperties.getProperty(name, "")
         .replace("\\", "\\\\")
@@ -26,8 +29,8 @@ android {
         applicationId = "com.cajasimple.app"
         minSdk = 24
         targetSdk = 36
-        versionCode = 1
-        versionName = "1.0.0"
+        versionCode = 2
+        versionName = "1.1.0"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         buildConfigField(
             "String",
@@ -39,7 +42,30 @@ android {
             "DRIVE_BACKUP_TOKEN",
             localBuildConfigString("driveBackupToken"),
         )
+        buildConfigField(
+            "String",
+            "UPDATE_API_URL",
+            "\"https://api.github.com/repos/Lucasleiva1/cobrador/releases/latest\"",
+        )
 
+    }
+
+    signingConfigs {
+        if (releaseKeystore.exists() && !releaseSigningPassword.isNullOrBlank()) {
+            create("release") {
+                storeFile = releaseKeystore
+                storePassword = releaseSigningPassword
+                keyAlias = "caja-simple"
+                keyPassword = releaseSigningPassword
+            }
+        }
+    }
+
+    buildTypes {
+        release {
+            signingConfig = signingConfigs.findByName("release")
+            isMinifyEnabled = false
+        }
     }
 
     buildFeatures {
