@@ -1,0 +1,14 @@
+.gradle/
+.idea/
+local.properties
+**/build/
+*.iml
+*.apk
+node_modules/
+.next/
+*.tsbuildinfo
+.env
+.env.local
+web-dashboard/.vercel/
+android-app/app/src/main/assets/local.properties
+android-app/wrapper-bootstrap/
