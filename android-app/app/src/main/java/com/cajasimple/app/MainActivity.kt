@@ -30,6 +30,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
+import androidx.lifecycle.lifecycleScope
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
@@ -44,6 +45,11 @@ import com.cajasimple.app.ui.theme.CajaTheme
 import com.cajasimple.app.update.UpdateInstaller
 import com.cajasimple.app.update.UpdateUiState
 import com.cajasimple.app.update.UpdateViewModel
+import com.cajasimple.app.worker.DriveBackupWorker
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -61,6 +67,11 @@ class MainActivity : ComponentActivity() {
             CajaTheme(preferences.theme, preferences.themeMode) {
                 CajaApp(cash, today, history, settings, updates)
             }
+        }
+        // Recupera respaldos pendientes después de mostrar la interfaz, sin demorar la apertura.
+        lifecycleScope.launch {
+            delay(1_500)
+            withContext(Dispatchers.Default) { DriveBackupWorker.enqueue(applicationContext) }
         }
     }
 }

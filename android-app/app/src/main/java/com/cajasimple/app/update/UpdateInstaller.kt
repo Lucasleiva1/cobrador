@@ -12,11 +12,14 @@ object UpdateInstaller {
     fun canInstall(context: Context): Boolean =
         Build.VERSION.SDK_INT < Build.VERSION_CODES.O || context.packageManager.canRequestPackageInstalls()
 
-    fun permissionIntent(context: Context): Intent =
+    fun permissionIntent(context: Context): Intent = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
         Intent(
             Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES,
             Uri.parse("package:${context.packageName}"),
         )
+    } else {
+        Intent(Settings.ACTION_SECURITY_SETTINGS)
+    }
 
     fun launch(context: Context, file: File) {
         val uri = FileProvider.getUriForFile(context, "${context.packageName}.files", file)

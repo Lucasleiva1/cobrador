@@ -45,4 +45,14 @@ class SalesDaoTest {
         assertNull(repository.confirm(draft))
         assertEquals(1, repository.observeDay(LocalDate.now()).first().size)
     }
+
+    @Test fun conservaLaVentaPendienteHastaQueElServidorLaConfirma() = runTest {
+        val draft = SaleDraft(items = listOf(DraftItem(unitPrice = 18_000)), receivedAmount = 20_000, paymentEntered = true)
+        val sale = requireNotNull(repository.confirm(draft))
+
+        assertEquals(listOf(sale.id), repository.pendingSales().map { it.id })
+        repository.markSynced(sale.id)
+        assertEquals(emptyList<String>(), repository.pendingSales().map { it.id })
+        assertEquals(1, repository.observeDay(LocalDate.now()).first().size)
+    }
 }

@@ -1,5 +1,6 @@
 package com.cajasimple.app.ui.screens.cash
 
+import android.os.Build
 import android.view.HapticFeedbackConstants
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedVisibility
@@ -386,7 +387,14 @@ private fun ConfirmedResult(state: CashUiState, onNewSale: () -> Unit) {
     val sale = requireNotNull(state.lastConfirmed)
     val view = LocalView.current
     var showConfetti by remember(sale.id) { mutableStateOf(true) }
-    LaunchedEffect(sale.id) { view.performHapticFeedback(HapticFeedbackConstants.CONFIRM) }
+    LaunchedEffect(sale.id) {
+        val feedback = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            HapticFeedbackConstants.CONFIRM
+        } else {
+            HapticFeedbackConstants.LONG_PRESS
+        }
+        view.performHapticFeedback(feedback)
+    }
     LaunchedEffect(sale.id) { delay(900); showConfetti = false }
     Box(Modifier.fillMaxSize()) {
         AnimatedVisibility(showConfetti, exit = fadeOut(tween(350))) { Confetti(Modifier.fillMaxSize()) }

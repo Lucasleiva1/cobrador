@@ -4,14 +4,15 @@ import android.app.Application
 import android.app.LocaleManager
 import android.os.Build
 import android.os.LocaleList
+import androidx.work.Configuration
 import androidx.room.Room
 import com.cajasimple.app.data.local.CajaDatabase
 import com.cajasimple.app.data.repository.SalesRepository
 import com.cajasimple.app.data.repository.SettingsRepository
-import com.cajasimple.app.worker.DriveBackupWorker
+import com.cajasimple.app.util.DeviceIdentity
 import java.util.Locale
 
-class CajaSimpleApplication : Application() {
+class CajaSimpleApplication : Application(), Configuration.Provider {
     lateinit var container: AppContainer
         private set
 
@@ -28,12 +29,13 @@ class CajaSimpleApplication : Application() {
         val database = Room.databaseBuilder(this, CajaDatabase::class.java, "caja-simple.db").build()
         container = AppContainer(
             database = database,
-            salesRepository = SalesRepository(database.salesDao()),
+            salesRepository = SalesRepository(database.salesDao(), DeviceIdentity.id(this)),
             settingsRepository = SettingsRepository(this),
         )
-        // Recupera el CSV local y cualquier respaldo pendiente cada vez que la app vuelve a abrirse.
-        DriveBackupWorker.enqueue(this)
     }
+
+    override val workManagerConfiguration: Configuration
+        get() = Configuration.Builder().build()
 }
 
 data class AppContainer(

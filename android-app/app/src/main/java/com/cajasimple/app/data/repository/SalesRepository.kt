@@ -16,7 +16,7 @@ import java.time.LocalDate
 import java.time.ZoneId
 import java.util.UUID
 
-class SalesRepository(private val dao: SalesDao) {
+class SalesRepository(private val dao: SalesDao, private val deviceId: String = "caja-local") {
     suspend fun saveDraft(draft: SaleDraft) {
         if (draft.confirmed) return
         dao.replaceDraft(
@@ -39,7 +39,7 @@ class SalesRepository(private val dao: SalesDao) {
         if (!draft.canConfirm) return null
         val sale = SaleEntity(
             id = draft.id,
-            deviceId = DEVICE_ID,
+            deviceId = deviceId,
             createdAt = now,
             totalAmount = draft.totalAmount,
             receivedAmount = draft.receivedAmount,
@@ -67,6 +67,11 @@ class SalesRepository(private val dao: SalesDao) {
         return dao.getBetween(start, end).map { it.toDomain() }
     }
 
+    suspend fun pendingSales(limit: Int = 25): List<ConfirmedSale> =
+        dao.pendingSales(limit).map { it.toDomain() }
+
+    suspend fun markSynced(id: String) = dao.updateSyncStatus(id, SyncStatus.SYNCED.name)
+
     private fun SaleWithItems.toDomain() = ConfirmedSale(
         id = sale.id,
         createdAt = sale.createdAt,
@@ -75,6 +80,4 @@ class SalesRepository(private val dao: SalesDao) {
         changeAmount = sale.changeAmount,
         items = items.sortedBy { it.position }.map { DraftItem(it.id, it.optionalDescription.orEmpty(), it.unitPrice, it.quantity) },
     )
-
-    companion object { const val DEVICE_ID = "caja-principal" }
 }

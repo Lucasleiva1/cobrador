@@ -14,9 +14,12 @@ import androidx.work.WorkManager
 import androidx.work.WorkerParameters
 import com.cajasimple.app.CajaSimpleApplication
 import com.cajasimple.app.BuildConfig
-import com.cajasimple.app.domain.model.SyncStatus
+import com.cajasimple.app.domain.model.ConfirmedSale
+import com.cajasimple.app.util.DeviceIdentity
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import org.json.JSONArray
+import org.json.JSONObject
 import java.time.LocalDate
 import java.io.File
 import java.net.HttpURLConnection
@@ -29,13 +32,22 @@ class DriveBackupWorker(context: Context, params: WorkerParameters) : CoroutineW
         return try {
             val date = LocalDate.now()
             val sales = container.salesRepository.getDay(date)
-            if (sales.isEmpty()) return Result.success()
-            val fileName = "ventas-$date.csv"
-            val content = DailySalesCsv.create(sales)
-            writeLocalDocuments(fileName, content)
-            if (!uploadToDrive(fileName, content)) return Result.retry()
-            sales.forEach { container.database.salesDao().updateSyncStatus(it.id, SyncStatus.SYNCED.name) }
-            Result.success()
+            if (sales.isNotEmpty()) {
+                val fileName = "ventas-$date.csv"
+                writeLocalDocuments(fileName, DailySalesCsv.create(sales))
+            }
+
+            val pending = container.salesRepository.pendingSales(SYNC_BATCH_SIZE)
+            if (pending.isEmpty()) return Result.success()
+            val deviceId = DeviceIdentity.id(applicationContext)
+            for (sale in pending) {
+                when (uploadSale(deviceId, sale)) {
+                    UploadResult.ACCEPTED -> container.salesRepository.markSynced(sale.id)
+                    UploadResult.DEVICE_NOT_AUTHORIZED -> return Result.success()
+                    UploadResult.RETRY -> return Result.retry()
+                }
+            }
+            if (pending.size == SYNC_BATCH_SIZE) Result.retry() else Result.success()
         } catch (_: SecurityException) {
             Result.failure()
         } catch (_: Exception) {
@@ -43,7 +55,7 @@ class DriveBackupWorker(context: Context, params: WorkerParameters) : CoroutineW
         }
     }
 
-    private suspend fun uploadToDrive(fileName: String, content: String): Boolean = withContext(Dispatchers.IO) {
+    private suspend fun uploadSale(deviceId: String, sale: ConfirmedSale): UploadResult = withContext(Dispatchers.IO) {
         val connection = (URL(BuildConfig.DRIVE_BACKUP_URL).openConnection() as HttpURLConnection).apply {
             requestMethod = "POST"
             connectTimeout = 15_000
@@ -54,29 +66,41 @@ class DriveBackupWorker(context: Context, params: WorkerParameters) : CoroutineW
             setRequestProperty("Accept", "application/json")
         }
         try {
-            val body = "{\"token\":\"${jsonEscape(BuildConfig.DRIVE_BACKUP_TOKEN)}\",\"fileName\":\"${jsonEscape(fileName)}\",\"csv\":\"${jsonEscape(content)}\"}"
+            val items = JSONArray().apply {
+                sale.items.forEach { item ->
+                    put(JSONObject().apply {
+                        put("description", item.description.trim())
+                        put("unitPrice", item.unitPrice)
+                        put("quantity", item.quantity)
+                        put("subtotal", item.subtotal)
+                    })
+                }
+            }
+            val body = JSONObject().apply {
+                put("token", BuildConfig.DRIVE_BACKUP_TOKEN)
+                put("deviceId", deviceId)
+                put("sale", JSONObject().apply {
+                    put("id", sale.id)
+                    put("createdAt", sale.createdAt)
+                    put("totalAmount", sale.totalAmount)
+                    put("receivedAmount", sale.receivedAmount)
+                    put("changeAmount", sale.changeAmount)
+                    put("items", items)
+                })
+            }.toString()
             connection.outputStream.bufferedWriter(Charsets.UTF_8).use { it.write(body) }
             val code = connection.responseCode
-            if (code !in 200..299) return@withContext false
+            if (code !in 200..299) return@withContext UploadResult.RETRY
             val response = connection.inputStream.bufferedReader(Charsets.UTF_8).use { it.readText() }
-            response.contains("\"ok\":true")
+            val json = runCatching { JSONObject(response) }.getOrNull()
+                ?: return@withContext UploadResult.RETRY
+            when {
+                json.optBoolean("ok") -> UploadResult.ACCEPTED
+                json.optString("error") == "device_not_authorized" -> UploadResult.DEVICE_NOT_AUTHORIZED
+                else -> UploadResult.RETRY
+            }
         } finally {
             connection.disconnect()
-        }
-    }
-
-    private fun jsonEscape(value: String): String = buildString(value.length + 16) {
-        value.forEach { character ->
-            when (character) {
-                '\\' -> append("\\\\")
-                '"' -> append("\\\"")
-                '\b' -> append("\\b")
-                '\u000C' -> append("\\f")
-                '\n' -> append("\\n")
-                '\r' -> append("\\r")
-                '\t' -> append("\\t")
-                else -> if (character.code < 0x20) append("\\u%04x".format(character.code)) else append(character)
-            }
         }
     }
 
@@ -128,6 +152,8 @@ class DriveBackupWorker(context: Context, params: WorkerParameters) : CoroutineW
     }
 
     companion object {
+        private const val SYNC_BATCH_SIZE = 25
+
         fun enqueue(context: Context) {
             val request = OneTimeWorkRequestBuilder<DriveBackupWorker>()
                 .setBackoffCriteria(BackoffPolicy.EXPONENTIAL, 15, TimeUnit.SECONDS)
@@ -135,4 +161,6 @@ class DriveBackupWorker(context: Context, params: WorkerParameters) : CoroutineW
             WorkManager.getInstance(context).enqueueUniqueWork("drive-daily-backup", ExistingWorkPolicy.REPLACE, request)
         }
     }
+
+    private enum class UploadResult { ACCEPTED, DEVICE_NOT_AUTHORIZED, RETRY }
 }
