@@ -1,3 +1,4 @@
+import java.io.File
 import java.util.Properties
 
 plugins {
@@ -11,8 +12,14 @@ val localProperties = Properties().apply {
     if (propertiesFile.exists()) propertiesFile.inputStream().use { load(it) }
 }
 
-val releaseKeystore = rootProject.file("keystore/caja-simple-release.jks")
+val externalSigningDirectory = File(System.getProperty("user.home"), ".caja-simple")
+val releaseKeystore = File(externalSigningDirectory, "caja-simple-release.jks")
+val externalSigningProperties = Properties().apply {
+    val propertiesFile = File(externalSigningDirectory, "signing.properties")
+    if (propertiesFile.exists()) propertiesFile.inputStream().use { load(it) }
+}
 val releaseSigningPassword = System.getenv("CAJA_SIMPLE_SIGNING_PASSWORD")
+    ?: externalSigningProperties.getProperty("storePassword")
 
 fun localBuildConfigString(name: String): String {
     val value = localProperties.getProperty(name, "")
@@ -29,8 +36,8 @@ android {
         applicationId = "com.cajasimple.app"
         minSdk = 24
         targetSdk = 36
-        versionCode = 2
-        versionName = "1.1.0"
+        versionCode = 3
+        versionName = "1.2.0"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         buildConfigField(
             "String",

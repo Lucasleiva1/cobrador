@@ -2,6 +2,7 @@ sdk.dir=C\:\\ruta\\al\\Android\\Sdk
 driveBackupUrl=https\://script.google.com/macros/s/ID_DE_IMPLEMENTACION/exec
 driveBackupToken=CLAVE_PRIVADA_DEL_RECEPTOR
 
-# La firma de producción usa la variable privada de Windows
-# CAJA_SIMPLE_SIGNING_PASSWORD y el archivo ignorado
-# keystore/caja-simple-release.jks.
+# La firma de producción se guarda fuera del repositorio en:
+# C:\Users\TU_USUARIO\.caja-simple\caja-simple-release.jks
+# C:\Users\TU_USUARIO\.caja-simple\signing.properties
+# Como alternativa, puede usarse CAJA_SIMPLE_SIGNING_PASSWORD.
