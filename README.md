@@ -24,7 +24,7 @@ Abra `http://localhost:3000`. Sin `.env.local`, usa datos demostrativos solament
 
 ## Respaldo
 
-La aplicación guarda primero cada venta en Room y genera una copia local en `Documentos/Caja Simple/AAAA-MM-DD/`. Cuando hay internet, envía el CSV por HTTPS al receptor privado de Google Apps Script, que lo actualiza en `Caja Simple - Ventas/AAAA-MM-DD/` dentro de Google Drive.
+La aplicación guarda primero cada venta en Room y genera una copia local en `Documentos/Caja Simple/AAAA-MM-DD/`. Cuando hay internet, envía cada venta pendiente por HTTPS al receptor privado de Google Apps Script. El receptor evita duplicados y combina las ventas autorizadas en un único CSV legible dentro de `Caja Simple - Ventas/AAAA-MM-DD/` en Google Drive. El cupo inicial es de tres teléfonos y puede ampliarse sin reinstalar la aplicación.
 
 La URL y la clave del receptor se leen desde `android-app/local.properties`, que está excluido de Git. Consulte `android-app/local.properties.example` para preparar otra computadora sin publicar credenciales.
 
