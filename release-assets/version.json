@@ -3,7 +3,8 @@
   "versionName": "1.2.0",
   "versionCode": 3,
   "minimumAndroid": 7,
-  "asset": "caja-simple.apk",
+  "asset": "caja-simple-v1.2.0.apk",
+  "updateAsset": "caja-simple.apk",
   "sha256": "09420996d3763f2b7c47940a1bb76e9145d24279e6508122eb2145f9b0d4aa27",
   "certificateSha256": "c2aba6b3f28b53ff83fdfaab1470b09e4ffd926f672dd5a5df491a28e66fe703"
 }

@@ -26,17 +26,24 @@ jobs:
         run: |
           VERSION="$(jq -r '.versionName' release-assets/version.json)"
           echo "tag=v${VERSION}" >> "$GITHUB_OUTPUT"
+          echo "apk=caja-simple-v${VERSION}.apk" >> "$GITHUB_OUTPUT"
+          echo "checksum=caja-simple-v${VERSION}.apk.sha256" >> "$GITHUB_OUTPUT"
 
       - name: Verificar integridad
         working-directory: release-assets
-        run: sha256sum -c caja-simple.apk.sha256
+        run: sha256sum -c "${{ steps.version.outputs.checksum }}"
 
       - name: Publicar versión
         env:
           GH_TOKEN: ${{ github.token }}
           TAG: ${{ steps.version.outputs.tag }}
+          VERSIONED_APK: ${{ steps.version.outputs.apk }}
+          VERSIONED_CHECKSUM: ${{ steps.version.outputs.checksum }}
         shell: bash
         run: |
+          cp "release-assets/$VERSIONED_APK" release-assets/caja-simple.apk
+          (cd release-assets && sha256sum caja-simple.apk > caja-simple.apk.sha256)
+
           if gh release view "$TAG" >/dev/null 2>&1; then
             gh release edit "$TAG" \
               --title "Caja Simple ${TAG#v}" \
@@ -51,5 +58,7 @@ jobs:
           gh release upload "$TAG" \
             release-assets/caja-simple.apk \
             release-assets/caja-simple.apk.sha256 \
+            "release-assets/$VERSIONED_APK" \
+            "release-assets/$VERSIONED_CHECKSUM" \
             release-assets/version.json \
             --clobber
