@@ -7,6 +7,7 @@ import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.scaleIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -47,13 +48,17 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.rotate
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.outlined.ArrowBack
+import androidx.compose.material.icons.automirrored.outlined.ArrowForward
 import androidx.compose.material.icons.outlined.Add
 import androidx.compose.material.icons.outlined.Remove
 import androidx.compose.material.icons.outlined.RestartAlt
@@ -144,21 +149,47 @@ private fun GuidedCash(
     onResetRequest: () -> Unit,
 ) {
     val draft = state.draft
-    if (draft.paymentStep) BackHandler { vm.editSale() }
-    if (!draft.paymentStep && state.guidedStep != GuidedStep.PRICE) BackHandler { vm.previousGuidedStep() }
     val currentItem = draft.items.last()
     val priceFocus = remember(currentItem.id) { FocusRequester() }
     val paymentFocus = remember { FocusRequester() }
     val focusManager = LocalFocusManager.current
-    LaunchedEffect(currentItem.id, state.guidedStep, draft.paymentStep) {
-        if (!draft.paymentStep && state.guidedStep == GuidedStep.PRICE) {
-            delay(180)
+    val keyboardController = LocalSoftwareKeyboardController.current
+    val navigateBack = {
+        focusManager.clearFocus(force = true)
+        keyboardController?.hide()
+        vm.navigateGuidedBack()
+    }
+    val navigateForward = {
+        focusManager.clearFocus(force = true)
+        keyboardController?.hide()
+        vm.navigateGuidedForward()
+    }
+    BackHandler(enabled = state.canNavigateBack, onBack = navigateBack)
+    var priceEditing by remember(currentItem.id) { mutableStateOf(false) }
+    var paymentEditing by remember(draft.paymentStep) { mutableStateOf(draft.paymentStep) }
+    LaunchedEffect(priceEditing) {
+        if (priceEditing) {
             priceFocus.requestFocus()
+            keyboardController?.show()
         }
     }
-    LaunchedEffect(draft.paymentStep) { if (draft.paymentStep) { delay(250); paymentFocus.requestFocus() } }
+    LaunchedEffect(draft.paymentStep, paymentEditing) {
+        if (draft.paymentStep && paymentEditing) {
+            delay(120)
+            paymentFocus.requestFocus()
+            keyboardController?.show()
+        }
+    }
     ScreenColumn {
-        ResetSaleControl(resetButtonStyle, onResetRequest)
+        GuidedSaleControls(
+            resetButtonStyle = resetButtonStyle,
+            canNavigateBack = state.canNavigateBack,
+            canNavigateForward = state.canNavigateForward,
+            onNavigateBack = navigateBack,
+            onNavigateForward = navigateForward,
+            onResetRequest = onResetRequest,
+        )
+        BrandName(businessName)
         if (!draft.paymentStep) {
             val completedItems = if (state.guidedStep == GuidedStep.DECISION) {
                 draft.validItems
@@ -169,18 +200,29 @@ private fun GuidedCash(
             when (state.guidedStep) {
                 GuidedStep.PRICE -> {
                     val finishPrice = {
+                        priceEditing = false
                         focusManager.clearFocus()
                         vm.confirmGuidedPrice()
                     }
-                    MoneyField(
-                        "Precio del producto",
-                        currentItem.unitPrice,
-                        { vm.updateItem(currentItem.id, priceRaw = it) },
-                        focusRequester = priceFocus,
-                        onDone = finishPrice,
-                        testTag = "guided-price",
-                    )
+                    if (priceEditing) {
+                        MoneyField(
+                            "Precio del producto",
+                            currentItem.unitPrice,
+                            { vm.updateItem(currentItem.id, priceRaw = it) },
+                            focusRequester = priceFocus,
+                            onDone = finishPrice,
+                            testTag = "guided-price",
+                        )
+                    } else {
+                        MoneyDisplay(
+                            label = "Precio del producto",
+                            amount = currentItem.unitPrice,
+                            testTag = "guided-price",
+                            onEdit = { priceEditing = true },
+                        )
+                    }
                     QuickAmountButtons(productQuickPrices) { price ->
+                        priceEditing = false
                         vm.updateItem(currentItem.id, priceRaw = price.toString())
                     }
                     PrimaryAction("Listo", currentItem.unitPrice > 0, finishPrice)
@@ -220,12 +262,34 @@ private fun GuidedCash(
                 }
             }
         } else {
-            Header(businessName, "Cobro")
+            Text("Cobro", style = MaterialTheme.typography.headlineLarge)
             draft.validItems.forEachIndexed { index, item -> GuidedItemSummary(index + 1, item) }
             Text("Total a cobrar", style = MaterialTheme.typography.bodyLarge)
             Text(SaleEngine.formatMoney(draft.totalAmount), style = MaterialTheme.typography.displayMedium)
-            MoneyField("¿Con cuánto te pagan?", draft.receivedAmount, vm::setPayment, focusRequester = paymentFocus, testTag = "received")
-            QuickAmountButtons(paymentQuickAmounts) { vm.setPayment(it.toString()) }
+            if (paymentEditing) {
+                MoneyField(
+                    "¿Con cuánto te pagan?",
+                    draft.receivedAmount,
+                    vm::setPayment,
+                    focusRequester = paymentFocus,
+                    onDone = {
+                        paymentEditing = false
+                        vm.confirm()
+                    },
+                    testTag = "received",
+                )
+            } else {
+                MoneyDisplay(
+                    label = "¿Con cuánto te pagan?",
+                    amount = draft.receivedAmount,
+                    testTag = "received",
+                    onEdit = { paymentEditing = true },
+                )
+            }
+            QuickAmountButtons(paymentQuickAmounts) {
+                paymentEditing = false
+                vm.setPayment(it.toString())
+            }
             PaymentResult(draft)
             TextButton(onClick = vm::editSale, modifier = Modifier.align(Alignment.End).height(48.dp)) { Text("Editar venta") }
             PrimaryAction("Cobrar", draft.canConfirm && !state.busy, { vm.confirm() })
@@ -234,8 +298,35 @@ private fun GuidedCash(
 }
 
 @Composable
+private fun MoneyDisplay(label: String, amount: Long, testTag: String, onEdit: () -> Unit) {
+    Surface(
+        onClick = onEdit,
+        modifier = Modifier.fillMaxWidth().height(69.dp).testTag(testTag),
+        shape = MaterialTheme.shapes.extraSmall,
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline),
+        color = MaterialTheme.colorScheme.surface,
+    ) {
+        Column(
+            modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+            verticalArrangement = Arrangement.Center,
+        ) {
+            Text(
+                label,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            Text(
+                SaleEngine.formatMoney(amount),
+                style = MaterialTheme.typography.headlineMedium,
+            )
+        }
+    }
+}
+
+@Composable
 private fun QuickAmountButtons(amounts: List<Long>, onSelect: (Long) -> Unit) {
     if (amounts.isEmpty()) return
+    val keyboardController = LocalSoftwareKeyboardController.current
     Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
         amounts.chunked(2).forEach { rowAmounts ->
             Row(
@@ -244,8 +335,14 @@ private fun QuickAmountButtons(amounts: List<Long>, onSelect: (Long) -> Unit) {
             ) {
                 rowAmounts.forEach { amount ->
                     OutlinedButton(
-                        onClick = { onSelect(amount) },
-                        modifier = Modifier.weight(1f).height(54.dp),
+                        onClick = {
+                            onSelect(amount)
+                            keyboardController?.hide()
+                        },
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(54.dp)
+                            .testTag("quick-amount"),
                     ) {
                         Text(SaleEngine.formatMoney(amount), style = MaterialTheme.typography.labelLarge)
                     }
@@ -306,7 +403,13 @@ private fun QuickCash(
         }
         TextButton(onClick = vm::addItem, modifier = Modifier.align(Alignment.End).height(52.dp)) { Text("+ Agregar producto") }
         Total(draft.totalAmount)
-        MoneyField("Dinero recibido", draft.receivedAmount, vm::setPayment, testTag = "received")
+        MoneyField(
+            "Dinero recibido",
+            draft.receivedAmount,
+            vm::setPayment,
+            onDone = { vm.confirm() },
+            testTag = "received",
+        )
         QuickAmountButtons(paymentQuickAmounts) { vm.setPayment(it.toString()) }
         PaymentResult(draft)
         PrimaryAction("Cobrar", draft.canConfirm && !state.busy, { vm.confirm() })
@@ -321,30 +424,75 @@ private fun ResetSaleControl(style: ResetButtonStyle, onResetRequest: () -> Unit
         horizontalArrangement = Arrangement.End,
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        if (style == ResetButtonStyle.ICON_ONLY) {
-            IconButton(
-                onClick = onResetRequest,
-                modifier = Modifier.size(40.dp).testTag("reset-sale"),
-            ) {
-                Icon(
-                    Icons.Outlined.RestartAlt,
-                    contentDescription = "Reiniciar venta",
-                    modifier = Modifier.size(22.dp),
-                )
-            }
-        } else {
-            TextButton(
-                onClick = onResetRequest,
-                modifier = Modifier.height(40.dp).testTag("reset-sale"),
-            ) {
-                Icon(
-                    Icons.Outlined.RestartAlt,
-                    contentDescription = null,
-                    modifier = Modifier.size(20.dp),
-                )
-                Spacer(Modifier.width(6.dp))
-                Text("Reiniciar")
-            }
+        ResetSaleButton(style, onResetRequest)
+    }
+}
+
+@Composable
+private fun GuidedSaleControls(
+    resetButtonStyle: ResetButtonStyle,
+    canNavigateBack: Boolean,
+    canNavigateForward: Boolean,
+    onNavigateBack: () -> Unit,
+    onNavigateForward: () -> Unit,
+    onResetRequest: () -> Unit,
+) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        ResetSaleButton(resetButtonStyle, onResetRequest)
+        Spacer(Modifier.weight(1f))
+        IconButton(
+            onClick = onNavigateBack,
+            enabled = canNavigateBack,
+            modifier = Modifier.size(48.dp).testTag("guided-back"),
+        ) {
+            Icon(
+                Icons.AutoMirrored.Outlined.ArrowBack,
+                contentDescription = "Volver un paso",
+                modifier = Modifier.size(26.dp),
+            )
+        }
+        IconButton(
+            onClick = onNavigateForward,
+            enabled = canNavigateForward,
+            modifier = Modifier.size(48.dp).testTag("guided-forward"),
+        ) {
+            Icon(
+                Icons.AutoMirrored.Outlined.ArrowForward,
+                contentDescription = "Avanzar un paso",
+                modifier = Modifier.size(26.dp),
+            )
+        }
+    }
+}
+
+@Composable
+private fun ResetSaleButton(style: ResetButtonStyle, onResetRequest: () -> Unit) {
+    if (style == ResetButtonStyle.ICON_ONLY) {
+        IconButton(
+            onClick = onResetRequest,
+            modifier = Modifier.size(48.dp).testTag("reset-sale"),
+        ) {
+            Icon(
+                Icons.Outlined.RestartAlt,
+                contentDescription = "Reiniciar venta",
+                modifier = Modifier.size(24.dp),
+            )
+        }
+    } else {
+        TextButton(
+            onClick = onResetRequest,
+            modifier = Modifier.height(48.dp).testTag("reset-sale"),
+        ) {
+            Icon(
+                Icons.Outlined.RestartAlt,
+                contentDescription = null,
+                modifier = Modifier.size(20.dp),
+            )
+            Spacer(Modifier.width(6.dp))
+            Text("Reiniciar")
         }
     }
 }
@@ -352,9 +500,22 @@ private fun ResetSaleControl(style: ResetButtonStyle, onResetRequest: () -> Unit
 @Composable
 private fun Header(business: String, title: String) {
     Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
-        Text(business, style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.primary)
+        BrandName(business)
         Text(title, style = MaterialTheme.typography.headlineLarge)
     }
+}
+
+@Composable
+private fun BrandName(business: String) {
+    if (business.isBlank()) return
+    Text(
+        text = business,
+        style = MaterialTheme.typography.headlineMedium,
+        color = MaterialTheme.colorScheme.primary,
+        maxLines = 2,
+        overflow = TextOverflow.Ellipsis,
+        modifier = Modifier.testTag("brand-name"),
+    )
 }
 
 @Composable

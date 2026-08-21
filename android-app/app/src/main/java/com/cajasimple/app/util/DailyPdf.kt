@@ -42,7 +42,10 @@ object DailyPdf {
             y += 17f
         }
 
-        canvas.drawText(businessName, 42f, y, titlePaint); y += 30f
+        if (businessName.isNotBlank()) {
+            canvas.drawText(businessName, 42f, y, titlePaint)
+            y += 30f
+        }
         line("Reporte diario · ${date.format(DateTimeFormatter.ofPattern("dd/MM/yyyy"))}")
         line("Generado: ${java.time.LocalDateTime.now().format(DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm"))}")
         y += 12f
@@ -79,4 +82,3 @@ object DailyPdf {
         context.startActivity(Intent.createChooser(intent, "Compartir reporte de ventas"))
     }
 }
-

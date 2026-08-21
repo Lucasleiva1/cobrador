@@ -51,9 +51,9 @@ data class ConfirmedSale(
 )
 
 data class BusinessSettings(
-    val businessName: String = "Mi emprendimiento",
+    val businessName: String = "",
     val mode: CashMode = CashMode.GUIDED,
-    val theme: VisualTheme = VisualTheme.CREAM,
+    val theme: VisualTheme = VisualTheme.RED_BLACK,
     val themeMode: ThemeMode = ThemeMode.DARK,
     val resetButtonStyle: ResetButtonStyle = ResetButtonStyle.ICON_ONLY,
     val productQuickPrices: List<Long> = listOf(18_000L, 20_000L, 25_000L, 30_000L),

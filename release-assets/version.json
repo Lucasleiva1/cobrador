@@ -1,9 +1,9 @@
 {
   "applicationId": "com.cajasimple.app",
-  "versionName": "1.1.0",
-  "versionCode": 2,
+  "versionName": "1.2.0",
+  "versionCode": 3,
   "minimumAndroid": 7,
   "asset": "caja-simple.apk",
-  "sha256": "06eb061d48c64f5e2a9f4a8605f2ccf81ff61996d51dd8763d0b01cce540a199",
+  "sha256": "09420996d3763f2b7c47940a1bb76e9145d24279e6508122eb2145f9b0d4aa27",
   "certificateSha256": "c2aba6b3f28b53ff83fdfaab1470b09e4ffd926f672dd5a5df491a28e66fe703"
 }

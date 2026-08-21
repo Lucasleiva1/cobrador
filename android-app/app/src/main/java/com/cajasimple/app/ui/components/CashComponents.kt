@@ -32,13 +32,60 @@ import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.input.OffsetMapping
+import androidx.compose.ui.text.input.TransformedText
+import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import com.cajasimple.app.domain.model.DraftItem
 import com.cajasimple.app.domain.usecase.SaleEngine
+
+val ThousandsSeparatorTransformation: VisualTransformation = VisualTransformation { text ->
+    val digits = text.text.filter(Char::isDigit)
+    val n = digits.length
+    val formatted = buildString {
+        for (i in 0 until n) {
+            append(digits[i])
+            val remaining = n - i - 1
+            if (remaining > 0 && remaining % 3 == 0) append('.')
+        }
+    }
+    val offsetMapping = object : OffsetMapping {
+        override fun originalToTransformed(offset: Int): Int {
+            val clamped = offset.coerceIn(0, n)
+            var dots = 0
+            for (i in 0 until clamped) {
+                val remaining = n - i - 1
+                if (remaining > 0 && remaining % 3 == 0) dots++
+            }
+            return clamped + dots
+        }
+
+        override fun transformedToOriginal(offset: Int): Int {
+            if (offset <= 0) return 0
+            var orig = 0
+            var trans = 0
+            for (i in 0 until n) {
+                if (trans >= offset) break
+                orig++
+                trans++
+                val remaining = n - i - 1
+                if (remaining > 0 && remaining % 3 == 0) {
+                    if (trans >= offset) break
+                    trans++
+                }
+            }
+            return orig
+        }
+    }
+    TransformedText(AnnotatedString(formatted), offsetMapping)
+}
 
 @Composable
 fun MoneyField(
@@ -56,6 +103,8 @@ fun MoneyField(
     val keyboard = LocalConfiguration.current.keyboard
     val hasPhysicalKeyboard = keyboard != Configuration.KEYBOARD_NOKEYS &&
         keyboard != Configuration.KEYBOARD_UNDEFINED
+    val focusManager = LocalFocusManager.current
+    val keyboardController = LocalSoftwareKeyboardController.current
     OutlinedTextField(
         value = digits,
         onValueChange = { onValueChange(it.filter(Char::isDigit).take(15)) },
@@ -67,15 +116,19 @@ fun MoneyField(
         enabled = enabled,
         label = { Text(label) },
         prefix = { Text("$ ") },
-        supportingText = if (digits.isNotEmpty()) ({ Text(SaleEngine.formatMoney(amount)) }) else null,
         singleLine = true,
         textStyle = MaterialTheme.typography.headlineMedium,
+        visualTransformation = ThousandsSeparatorTransformation,
         keyboardOptions = KeyboardOptions(
             keyboardType = KeyboardType.Number,
             imeAction = imeAction,
             showKeyboardOnFocus = !hasPhysicalKeyboard,
         ),
-        keyboardActions = KeyboardActions(onDone = { onDone?.invoke() }),
+        keyboardActions = KeyboardActions(onDone = {
+            focusManager.clearFocus(force = true)
+            keyboardController?.hide()
+            onDone?.invoke()
+        }),
     )
 }
 

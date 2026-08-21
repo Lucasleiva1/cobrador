@@ -51,7 +51,9 @@ fun SalesListScreen(viewModel: SalesListViewModel, businessName: String, history
         Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(20.dp),
         verticalArrangement = Arrangement.spacedBy(18.dp),
     ) {
-        Text(businessName, style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.primary)
+        if (businessName.isNotBlank()) {
+            Text(businessName, style = MaterialTheme.typography.titleLarge, color = MaterialTheme.colorScheme.primary)
+        }
         Text(if (history) "Historial" else "Hoy", style = MaterialTheme.typography.headlineLarge)
         if (history) DateSelector(date, viewModel::previousDay, viewModel::nextDay)
         Text(date.format(DateTimeFormatter.ofPattern("EEEE d 'de' MMMM", SpanishArgentina)), style = MaterialTheme.typography.titleLarge)

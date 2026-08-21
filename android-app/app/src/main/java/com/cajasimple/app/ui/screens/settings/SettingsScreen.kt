@@ -46,6 +46,7 @@ import com.cajasimple.app.domain.model.ResetButtonStyle
 import com.cajasimple.app.domain.model.ThemeMode
 import com.cajasimple.app.domain.model.VisualTheme
 import com.cajasimple.app.domain.usecase.SaleEngine
+import com.cajasimple.app.ui.components.ThousandsSeparatorTransformation
 import com.cajasimple.app.BuildConfig
 import com.cajasimple.app.update.UpdateUiState
 import com.cajasimple.app.update.UpdateViewModel
@@ -62,12 +63,16 @@ fun SettingsScreen(viewModel: SettingsViewModel, updatesViewModel: UpdateViewMod
         verticalArrangement = Arrangement.spacedBy(20.dp),
     ) {
         Text("Ajustes", style = MaterialTheme.typography.headlineLarge)
+        SectionTitle("Identidad de la caja")
         OutlinedTextField(
             value = name,
             onValueChange = { name = it.take(60); viewModel.setName(name) },
-            label = { Text("Nombre del emprendimiento") },
+            label = { Text("Nombre de la marca") },
+            placeholder = { Text("Ej.: Almacén San Martín") },
+            supportingText = { Text("Se mostrará arriba de la calculadora y en los reportes.") },
             modifier = Modifier.fillMaxWidth(),
             singleLine = true,
+            textStyle = MaterialTheme.typography.titleLarge,
         )
         SectionTitle("Modo de caja")
         Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -291,6 +296,7 @@ private fun QuickAmountsEditor(
                     onValueChange = { raw = it.filter(Char::isDigit).take(15) },
                     label = { Text("Nuevo importe") },
                     prefix = { Text("$ ") },
+                    visualTransformation = ThousandsSeparatorTransformation,
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                     singleLine = true,
                     modifier = Modifier.weight(1f),

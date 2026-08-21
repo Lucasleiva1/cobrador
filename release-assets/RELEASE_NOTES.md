@@ -1,8 +1,8 @@
-# Caja Simple 1.1.0
+# Caja Simple 1.2.0
 
-- Archivos diarios de ventas más claros y fáciles de leer.
-- Búsqueda manual de actualizaciones desde Configuración.
-- Aviso automático al abrir la aplicación cuando existe una versión nueva.
-- Opción de instalar en el momento o dejar la actualización para más tarde.
-- Descarga verificada mediante SHA-256 antes de abrir el instalador de Android.
-- Información operativa incorporada dentro de la sección avanzada.
+- Los precios preestablecidos se seleccionan sin abrir el teclado; el campo se puede tocar para editarlo manualmente.
+- El botón Hecho del teclado confirma el cobro cuando el importe es válido, manteniendo también disponible el botón Cobrar.
+- Flechas para deshacer y rehacer los pasos de una venta guiada.
+- Controles de reinicio y navegación reubicados para evitar cortes y pulsaciones accidentales.
+- Nombre de marca opcional al inicio de Ajustes, visible en la calculadora y los reportes solamente cuando se completa.
+- Importes más legibles con separadores de miles.

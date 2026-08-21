@@ -25,9 +25,9 @@ class SettingsRepository(private val context: Context) {
 
     val settings: Flow<BusinessSettings> = context.settingsStore.data.map { prefs ->
         BusinessSettings(
-            businessName = prefs[businessName] ?: "Mi emprendimiento",
+            businessName = prefs[businessName].orEmpty(),
             mode = prefs[selectedMode]?.let { runCatching { CashMode.valueOf(it) }.getOrNull() } ?: CashMode.GUIDED,
-            theme = prefs[selectedTheme]?.let { runCatching { VisualTheme.valueOf(it) }.getOrNull() } ?: VisualTheme.CREAM,
+            theme = prefs[selectedTheme]?.let { runCatching { VisualTheme.valueOf(it) }.getOrNull() } ?: VisualTheme.RED_BLACK,
             themeMode = prefs[selectedThemeMode]?.let { runCatching { ThemeMode.valueOf(it) }.getOrNull() } ?: ThemeMode.DARK,
             resetButtonStyle = prefs[resetButtonStyle]?.let { runCatching { ResetButtonStyle.valueOf(it) }.getOrNull() }
                 ?: ResetButtonStyle.ICON_ONLY,
@@ -36,7 +36,7 @@ class SettingsRepository(private val context: Context) {
         )
     }
 
-    suspend fun setBusinessName(value: String) = context.settingsStore.edit { it[businessName] = value.trim().ifBlank { "Mi emprendimiento" } }
+    suspend fun setBusinessName(value: String) = context.settingsStore.edit { it[businessName] = value.trim().take(60) }
     suspend fun setMode(value: CashMode) = context.settingsStore.edit { it[selectedMode] = value.name }
     suspend fun setTheme(value: VisualTheme) = context.settingsStore.edit { it[selectedTheme] = value.name }
     suspend fun setThemeMode(value: ThemeMode) = context.settingsStore.edit { it[selectedThemeMode] = value.name }

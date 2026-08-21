@@ -23,14 +23,23 @@ data class CashUiState(
     val notice: String? = null,
     val restored: Boolean = false,
     val guidedStep: GuidedStep = GuidedStep.PRICE,
+    val canNavigateBack: Boolean = false,
+    val canNavigateForward: Boolean = false,
 )
 
 enum class GuidedStep { PRICE, QUANTITY, DECISION }
+
+private data class GuidedHistoryEntry(
+    val draft: SaleDraft,
+    val step: GuidedStep,
+)
 
 class CashViewModel(private val repository: SalesRepository, private val appContext: Context) : ViewModel() {
     private val _state = MutableStateFlow(CashUiState())
     val state: StateFlow<CashUiState> = _state.asStateFlow()
     private val confirming = AtomicBoolean(false)
+    private val guidedBackHistory = mutableListOf<GuidedHistoryEntry>()
+    private val guidedForwardHistory = mutableListOf<GuidedHistoryEntry>()
 
     init {
         viewModelScope.launch {
@@ -40,7 +49,7 @@ class CashViewModel(private val repository: SalesRepository, private val appCont
                 draft.items.lastOrNull()?.unitPrice?.let { it > 0 } == true -> GuidedStep.QUANTITY
                 else -> GuidedStep.PRICE
             }
-            _state.value = _state.value.copy(draft = draft, restored = true, guidedStep = restoredStep)
+            setState(_state.value.copy(draft = draft, restored = true, guidedStep = restoredStep))
         }
     }
 
@@ -56,42 +65,61 @@ class CashViewModel(private val repository: SalesRepository, private val appCont
     fun addGuidedItem() {
         val current = _state.value
         if (current.guidedStep != GuidedStep.DECISION || current.draft.confirmed || current.busy) return
-        _state.value = current.copy(
+        navigateGuided(current.copy(
             draft = SaleEngine.addItem(current.draft),
             guidedStep = GuidedStep.PRICE,
             notice = null,
-        )
-        persist()
+        ))
     }
 
     fun confirmGuidedPrice() {
         val current = _state.value
         if (current.draft.items.lastOrNull()?.unitPrice?.let { it > 0 } == true) {
-            _state.value = current.copy(guidedStep = GuidedStep.QUANTITY, notice = null)
+            navigateGuided(current.copy(guidedStep = GuidedStep.QUANTITY, notice = null))
         }
     }
 
     fun confirmGuidedQuantity() {
         val current = _state.value
         if (current.draft.items.lastOrNull()?.valid == true) {
-            _state.value = current.copy(guidedStep = GuidedStep.DECISION, notice = null)
+            navigateGuided(current.copy(guidedStep = GuidedStep.DECISION, notice = null))
         }
     }
 
-    fun previousGuidedStep() {
+    fun navigateGuidedBack() {
         val current = _state.value
-        val previous = when (current.guidedStep) {
-            GuidedStep.PRICE -> return
-            GuidedStep.QUANTITY -> GuidedStep.PRICE
-            GuidedStep.DECISION -> GuidedStep.QUANTITY
+        if (current.draft.confirmed || current.busy || !canStepBack(current)) return
+        guidedForwardHistory += current.toHistoryEntry()
+        val previous = if (guidedBackHistory.isNotEmpty()) {
+            guidedBackHistory.removeAt(guidedBackHistory.lastIndex)
+        } else {
+            fallbackPrevious(current) ?: return
         }
-        _state.value = current.copy(guidedStep = previous, notice = null)
+        setState(current.copy(draft = previous.draft, guidedStep = previous.step, notice = null))
+        persist()
     }
+
+    fun navigateGuidedForward() {
+        val current = _state.value
+        if (current.draft.confirmed || current.busy || guidedForwardHistory.isEmpty()) return
+        guidedBackHistory += current.toHistoryEntry()
+        val next = guidedForwardHistory.removeAt(guidedForwardHistory.lastIndex)
+        setState(current.copy(draft = next.draft, guidedStep = next.step, notice = null))
+        persist()
+    }
+
+    fun previousGuidedStep() = navigateGuidedBack()
 
     fun removeItem(id: String) = mutate { SaleEngine.removeItem(it, id) }
     fun setPayment(raw: String) = mutate { SaleEngine.enterPayment(it, raw) }
-    fun goToPayment() = mutate { if (it.totalAmount > 0) it.copy(paymentStep = true) else it }
-    fun editSale() = mutate { it.copy(paymentStep = false, receivedAmount = 0, paymentEntered = false) }
+    fun goToPayment() {
+        val current = _state.value
+        if (current.draft.totalAmount > 0) {
+            navigateGuided(current.copy(draft = current.draft.copy(paymentStep = true), notice = null))
+        }
+    }
+
+    fun editSale() = navigateGuidedBack()
 
     fun confirm(showResult: Boolean = true, onDone: (() -> Unit)? = null) {
         val current = _state.value.draft
@@ -130,20 +158,65 @@ class CashViewModel(private val repository: SalesRepository, private val appCont
     }
 
     private fun resetSale() {
-        _state.value = CashUiState(draft = SaleDraft(id = UUID.randomUUID().toString()), restored = true)
+        clearGuidedHistory()
+        setState(CashUiState(draft = SaleDraft(id = UUID.randomUUID().toString()), restored = true))
         persist()
     }
 
     private fun resetSaleKeepingNotice() {
         val notice = _state.value.notice
-        _state.value = CashUiState(draft = SaleDraft(id = UUID.randomUUID().toString()), notice = notice, restored = true)
+        clearGuidedHistory()
+        setState(CashUiState(draft = SaleDraft(id = UUID.randomUUID().toString()), notice = notice, restored = true))
         persist()
     }
 
     private fun mutate(transform: (SaleDraft) -> SaleDraft) {
         if (_state.value.draft.confirmed || _state.value.busy) return
-        _state.value = _state.value.copy(draft = transform(_state.value.draft), notice = null)
+        guidedForwardHistory.clear()
+        setState(_state.value.copy(draft = transform(_state.value.draft), notice = null))
         persist()
+    }
+
+    private fun navigateGuided(next: CashUiState) {
+        val current = _state.value
+        if (current.draft.confirmed || current.busy) return
+        guidedBackHistory += current.toHistoryEntry()
+        guidedForwardHistory.clear()
+        setState(next)
+        persist()
+    }
+
+    private fun CashUiState.toHistoryEntry() = GuidedHistoryEntry(draft, guidedStep)
+
+    private fun fallbackPrevious(current: CashUiState): GuidedHistoryEntry? = when {
+        current.draft.paymentStep -> GuidedHistoryEntry(
+            current.draft.copy(paymentStep = false, receivedAmount = 0, paymentEntered = false),
+            GuidedStep.DECISION,
+        )
+        current.guidedStep == GuidedStep.DECISION -> GuidedHistoryEntry(current.draft, GuidedStep.QUANTITY)
+        current.guidedStep == GuidedStep.QUANTITY -> GuidedHistoryEntry(current.draft, GuidedStep.PRICE)
+        current.guidedStep == GuidedStep.PRICE && current.draft.items.size > 1 -> GuidedHistoryEntry(
+            current.draft.copy(items = current.draft.items.dropLast(1)),
+            GuidedStep.DECISION,
+        )
+        else -> null
+    }
+
+    private fun canStepBack(state: CashUiState): Boolean = guidedBackHistory.isNotEmpty() ||
+        state.draft.paymentStep ||
+        state.guidedStep != GuidedStep.PRICE ||
+        state.draft.items.size > 1
+
+    private fun setState(state: CashUiState) {
+        _state.value = state.copy(
+            canNavigateBack = canStepBack(state),
+            canNavigateForward = guidedForwardHistory.isNotEmpty(),
+        )
+    }
+
+    private fun clearGuidedHistory() {
+        guidedBackHistory.clear()
+        guidedForwardHistory.clear()
     }
 
     private fun persist() {

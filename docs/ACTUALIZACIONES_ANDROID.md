@@ -14,4 +14,4 @@ Android exige que el usuario autorice la instalación desde esta aplicación y c
 
 ## Firma de producción
 
-Todas las versiones deben conservar los archivos privados `caja-simple-release.jks` y `signing.properties` ubicados en la carpeta `.caja-simple` del perfil de Windows, fuera del repositorio. El compilador también admite la variable privada `CAJA_SIMPLE_SIGNING_PASSWORD` como alternativa. Ninguna clave se guarda en Git. Si se pierde la firma definitiva, Android no permitirá actualizar las instalaciones existentes.
+Todas las versiones deben conservar los archivos privados `caja-simple-release.jks` y `signing.properties` ubicados en la carpeta `.caja-simple` del perfil de Windows, fuera del repositorio. El compilador también admite las variables privadas `CAJA_SIMPLE_SIGNING_KEYSTORE` y `CAJA_SIMPLE_SIGNING_PASSWORD` para indicar otra ubicación segura y su contraseña. Ninguna clave se guarda en Git. Si se pierde la firma definitiva, Android no permitirá actualizar las instalaciones existentes.

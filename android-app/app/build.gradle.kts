@@ -13,7 +13,10 @@ val localProperties = Properties().apply {
 }
 
 val externalSigningDirectory = File(System.getProperty("user.home"), ".caja-simple")
-val releaseKeystore = File(externalSigningDirectory, "caja-simple-release.jks")
+val releaseKeystore = System.getenv("CAJA_SIMPLE_SIGNING_KEYSTORE")
+    ?.takeIf { it.isNotBlank() }
+    ?.let(::File)
+    ?: File(externalSigningDirectory, "caja-simple-release.jks")
 val externalSigningProperties = Properties().apply {
     val propertiesFile = File(externalSigningDirectory, "signing.properties")
     if (propertiesFile.exists()) propertiesFile.inputStream().use { load(it) }
